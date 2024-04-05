@@ -336,9 +336,28 @@ func CreateModel(ctx context.Context, name, modelFileDir string, commands []pars
 			}
 
 			if ggufName != "" {
-				pathName = ggufName
-				slog.Debug(fmt.Sprintf("new image layer path: %s", pathName))
 				defer os.RemoveAll(ggufName)
+
+				// TODO: use level from request
+				level := "Q4_1"
+
+				fn(api.ProgressResponse{Status: fmt.Sprintf("quantizing %s model to %s", "F16", level)})
+
+				tempfile, err := os.CreateTemp(filepath.Dir(ggufName), level)
+				if err != nil {
+					return err
+				}
+				defer os.RemoveAll(tempfile.Name())
+
+				if err := llm.Quantize(ggufName, tempfile.Name(), level); err != nil {
+					return err
+				}
+
+				if err := tempfile.Close(); err != nil {
+					return err
+				}
+
+				pathName = tempfile.Name()
 			}
 
 			bin, err := os.Open(pathName)
